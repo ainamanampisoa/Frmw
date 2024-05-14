@@ -1,3 +1,4 @@
+package mg.itu.prom16;
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -12,10 +13,15 @@ import java.util.Set;
 
 import org.reflections.Reflections;
 
-@WebServlet("/FrontController")
 public class FrontController extends HttpServlet {
     private boolean checked = false;
     private List<String> listeControllers = new ArrayList<>();
+
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        scanControllers();
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -54,17 +60,21 @@ public class FrontController extends HttpServlet {
     }
 
     private void scanControllers() {
-        // Obtenez le package spécifié dans la configuration
         ServletConfig config = getServletConfig();
         String controllerPackage = config.getInitParameter("controller-package");
-
+    
         // Utilisez Reflections pour scanner le package et récupérer les classes annotées avec @AnnotationController
         Reflections reflections = new Reflections(controllerPackage);
         Set<Class<?>> annotatedClasses = reflections.getTypesAnnotatedWith(AnnotationController.class);
-
-        // Ajoutez les noms des classes annotées à la liste des contrôleurs
+    
+        // Parcourez chaque classe annotée pour récupérer les noms des classes
         for (Class<?> clazz : annotatedClasses) {
-            listeControllers.add(clazz.getName());
+            // Vérifiez si la classe est annotée avec @AnnotationController
+            if (clazz.isAnnotationPresent(AnnotationController.class)) {
+                // Si oui, ajoutez le nom de la classe à la liste des contrôleurs
+                listeControllers.add(clazz.getName());
+            }
         }
     }
+    
 }
