@@ -14,7 +14,7 @@ jar cf FrontController.jar mg
 jar cf AnnotationController.jar mg
 
 # Déplacer le fichier JAR créé dans le répertoire souhaité
-mv FrontController.jar "D:\WORK\TEST"
-mv AnnotationController.jar "D:\WORK\TEST"
+mv FrontController.jar "D:\WORK\TEST\lib"
+mv AnnotationController.jar "D:\WORK\TEST\lib"
 
 sleep 60
