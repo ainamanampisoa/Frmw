@@ -1,12 +1,33 @@
 
 # Frmw
--creer AnnotationController 
--creer FrontController avec fonction qui recupere les class depuis package controller(web.xml) de TEST
--script pour envoyer les .jar dans lib de TEST
-
+    -creation de GetAnnotation
+    -changement dans processRequest
 # TEST
+-ajouter une class annote par AnnotationController puis ajouter des methodes annotes par GetAnnotation
+-annoter les methodes de cette maniere GetAnnotation("emplist") 
 
--creer class TestController et autres en utilisant annotation du frmw
+EXEMPLE:
+
+@AnnotationController("Employe")
+public class Employe {
+
+    @GetAnnotation("emplist")
+    public void liste(){
+
+    }
+
+    @GetAnnotation("emplist")
+    public void getliste(){
+
+    }
+
+    @GetAnnotation("liste")
+    public void getlistes(){
+
+    }
+
+}
+
 -web.xml contenant le package controller(package de votre controller)
 (exemple:<servlet>
             <servlet-name>FrontController</servlet-name>
@@ -17,3 +38,4 @@
             </init-param>
          </servlet>)
 -script pour deployer dans webapps
+
