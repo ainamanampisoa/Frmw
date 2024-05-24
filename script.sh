@@ -16,4 +16,7 @@ mv AnnotationController.jar "D:\WORK\TEST\lib"
 mv GetAnnotation.jar "D:\WORK\TEST\lib"
 mv Mapping.jar "D:\WORK\TEST\lib"
 
+mv FrontController.jar "D:\WORK\TEST\lib"
+mv AnnotationController.jar "D:\WORK\TEST\lib"
+
 sleep 60
