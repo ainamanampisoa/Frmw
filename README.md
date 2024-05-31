@@ -4,9 +4,13 @@
     -changement dans processRequest
 # TEST
 -ajouter une class annote par AnnotationController puis ajouter des methodes annotes par GetAnnotation
--annoter les methodes de cette maniere GetAnnotation("emplist") 
+-annoter les methodes de cette maniere GetAnnotation("emplist")
+-ajouter une methode avec une valeur de retour String
 
 EXEMPLE:
+
+package controller;
+import mg.itu.prom16.*;
 
 @AnnotationController("Employe")
 public class Employe {
@@ -17,16 +21,19 @@ public class Employe {
     }
 
     @GetAnnotation("emplist")
-    public void getliste(){
-
+    public String getliste(){
+        String a="Coucou";
+        return a;
     }
 
     @GetAnnotation("liste")
-    public void getlistes(){
-
+    public String getlistes(){
+        String b="Bonjour";
+        return b;
     }
 
 }
+
 
 -web.xml contenant le package controller(package de votre controller)
 (exemple:<servlet>
