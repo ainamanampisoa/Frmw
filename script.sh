@@ -10,13 +10,12 @@ jar cf FrontController.jar mg
 jar cf AnnotationController.jar mg
 jar cf GetAnnotation.jar mg
 jar cf Mapping.jar mg
+jar cf ModelView.jar mg
 
 mv FrontController.jar "D:\WORK\TEST\lib"
 mv AnnotationController.jar "D:\WORK\TEST\lib"
 mv GetAnnotation.jar "D:\WORK\TEST\lib"
 mv Mapping.jar "D:\WORK\TEST\lib"
-
-mv FrontController.jar "D:\WORK\TEST\lib"
-mv AnnotationController.jar "D:\WORK\TEST\lib"
+mv ModelView.jar "D:\WORK\TEST\lib"
 
 sleep 60
