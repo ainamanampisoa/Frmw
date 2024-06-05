@@ -5,7 +5,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import mg.itu.prom16.GetAnnotation;
 
 import java.io.File;
 import java.io.IOException;
@@ -36,7 +35,7 @@ public class FrontController extends HttpServlet {
         processRequest(request, response);
     }
 
-    private synchronized void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    private synchronized void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("text/html;charset=UTF-8");
         try (PrintWriter out = response.getWriter()) {
             out.println("<html>");
@@ -54,9 +53,9 @@ public class FrontController extends HttpServlet {
                 path = "/" + path;
             }
 
-            List<Mapping> matchedMappings = urlMapping.getOrDefault(path, new ArrayList<>());
+            List<Mapping> matchedMappings = urlMapping.get(path);
 
-            if (!matchedMappings.isEmpty()) {
+            if (matchedMappings != null && !matchedMappings.isEmpty()) {
                 out.println("<h2>Liste des contrôleurs et leurs méthodes annotées :</h2>");
                 out.println("<p>URL: " + path + "</p>");
                 for (Mapping mapping : matchedMappings) {
@@ -65,7 +64,21 @@ public class FrontController extends HttpServlet {
                     try {
                         Object controllerInstance = mapping.getControllerClass().getDeclaredConstructor().newInstance();
                         Object result = mapping.getMethod().invoke(controllerInstance);
-                        out.println("<p>Valeur de retour: " + (result != null ? result.toString() : "null") + "</p>");
+
+                        if (result instanceof String) {
+                            out.println("<p>Valeur de retour: " + result + "</p>");
+                        } else if (result instanceof ModelView) {
+                            ModelView mv = (ModelView) result;
+                            // Display data
+                            out.println("<h3>Data:</h3>");
+                            for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
+                                out.println("<p>" + entry.getKey() + ": " + entry.getValue() + "</p>");
+                            }
+                            // Do not forward, just display the data
+                            out.println("<p>URL de destination: " + mv.getUrl() + "</p>");
+                        } else {
+                            out.println("<p>Valeur de retour non reconnu</p>");
+                        }
                     } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                         e.printStackTrace();
                         out.println("<p style='color:red'>Erreur lors de l'invocation de la méthode: " + e.getMessage() + "</p>");
@@ -117,8 +130,7 @@ public class FrontController extends HttpServlet {
                                 if (!urlKey.startsWith("/")) {
                                     urlKey = "/" + urlKey;
                                 }
-                                urlMapping.putIfAbsent(urlKey, new ArrayList<>());
-                                urlMapping.get(urlKey).add(new Mapping(urlKey, clazz, method));
+                                urlMapping.computeIfAbsent(urlKey, k -> new ArrayList<>()).add(new Mapping(urlKey, clazz, method));
                                 System.out.println("Mapped URL: " + urlKey + " to " + clazz.getName() + "." + method.getName());
                             }
                         }
