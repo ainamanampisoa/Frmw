@@ -2,10 +2,12 @@
 # Frmw
     -creation de GetAnnotation
     -changement dans processRequest
+    -creation de ModelView
 # TEST
 -ajouter une class annote par AnnotationController puis ajouter des methodes annotes par GetAnnotation
 -annoter les methodes de cette maniere GetAnnotation("emplist")
 -ajouter une methode avec une valeur de retour String
+-recuperation des donnees depuis ModelView
 
 EXEMPLE:
 
@@ -16,8 +18,12 @@ import mg.itu.prom16.*;
 public class Employe {
 
     @GetAnnotation("emplist")
-    public void liste(){
-
+    public ModelView liste(){
+          // Exemple de données
+          ModelView modelView = new ModelView("/exampleView.jsp");
+          modelView.addObject("message", "Hello, World!");
+          modelView.addObject("username", "john_doe");
+          return modelView;
     }
 
     @GetAnnotation("emplist")
@@ -31,8 +37,9 @@ public class Employe {
         String b="Bonjour";
         return b;
     }
-
+    
 }
+
 
 
 -web.xml contenant le package controller(package de votre controller)
