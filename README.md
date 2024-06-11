@@ -2,6 +2,7 @@
 # Frmw
     -creation de GetAnnotation
     -changement dans processRequest
+    -ajout de gestion des exceptions
     -creation de ModelView
 # TEST
 -ajouter une class annote par AnnotationController puis ajouter des methodes annotes par GetAnnotation
