@@ -1,5 +1,6 @@
 package mg.itu.prom16;
 
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -11,6 +12,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -50,7 +52,7 @@ public class FrontController extends HttpServlet {
             List<Mapping> matchedMappings = urlMapping.get(path);
 
             if (matchedMappings != null && !matchedMappings.isEmpty()) {
-                handleMappings(out, matchedMappings);
+                handleMappings(request, response, out, matchedMappings);
             } else {
                 out.println("<h2 style='color:red'>Aucun mapping trouvé pour l'URL : " + path + "</h2>");
             }
@@ -71,13 +73,14 @@ public class FrontController extends HttpServlet {
         return path;
     }
 
-    private void handleMappings(PrintWriter out, List<Mapping> matchedMappings) throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+    private void handleMappings(HttpServletRequest request, HttpServletResponse response, PrintWriter out, List<Mapping> matchedMappings) throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException, ServletException, IOException {
         out.println("<h2>Liste des contrôleurs et leurs méthodes annotées :</h2>");
         for (Mapping mapping : matchedMappings) {
             out.println("<p>Classe: " + mapping.getControllerClass().getName() + "</p>");
             out.println("<p>Méthode: " + mapping.getMethod().getName() + "</p>");
             Object controllerInstance = mapping.getControllerClass().getDeclaredConstructor().newInstance();
-            Object result = mapping.getMethod().invoke(controllerInstance);
+            Object[] params = getMethodParameters(request, mapping.getMethod());
+            Object result = mapping.getMethod().invoke(controllerInstance, params);
 
             if (result instanceof String) {
                 out.println("<p>Valeur de retour: " + result + "</p>");
@@ -86,13 +89,32 @@ public class FrontController extends HttpServlet {
                 out.println("<h3>Data:</h3>");
                 for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
                     out.println("<p>" + entry.getKey() + ": " + entry.getValue() + "</p>");
+                    request.setAttribute(entry.getKey(), entry.getValue());
                 }
                 out.println("<p>URL de destination: " + mv.getUrl() + "</p>");
+                RequestDispatcher dispatcher = request.getRequestDispatcher(mv.getUrl());
+                dispatcher.forward(request, response);
+                return;
             } else {
-                out.println("<p>Valeur de retour non reconnu</p>");
+                out.println("<p>Valeur de retour non reconnue</p>");
             }
             out.println("<hr>");
         }
+    }
+
+    private Object[] getMethodParameters(HttpServletRequest request, Method method) {
+        Parameter[] parameters = method.getParameters();
+        Object[] parameterValues = new Object[parameters.length];
+
+        for (int i = 0; i < parameters.length; i++) {
+            if (parameters[i].isAnnotationPresent(GetParam.class)) {
+                GetParam getParam = parameters[i].getAnnotation(GetParam.class);
+                String paramName = getParam.value();
+                String paramValue = request.getParameter(paramName);
+                parameterValues[i] = paramValue;
+            }
+        }
+        return parameterValues;
     }
 
     private void handleException(HttpServletResponse response, Exception e) throws IOException {
