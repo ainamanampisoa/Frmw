@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class FrontController extends HttpServlet {
     private List<String> controller = new ArrayList<>();
@@ -47,12 +48,13 @@ public class FrontController extends HttpServlet {
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+    throws ServletException, IOException {
         PrintWriter out = response.getWriter();
         String[] requestUrlSplitted = request.getRequestURL().toString().split("/");
         String controllerSearched = requestUrlSplitted[requestUrlSplitted.length - 1];
 
         response.setContentType("text/html");
+
         if (!error.isEmpty()) {
             out.println(error);
         } else if (!lien.containsKey(controllerSearched)) {
@@ -83,27 +85,46 @@ public class FrontController extends HttpServlet {
 
                 // Inject parameters
                 Object[] parameters = getMethodParameters(method, request);
-                
+
                 Object object = clazz.getDeclaredConstructor().newInstance();
                 Object returnValue = method.invoke(object, parameters);
 
-                if (returnValue instanceof String) {
-                    out.println("Méthode trouvée dans " + returnValue);
-                } else if (returnValue instanceof ModelView) {
-                    ModelView modelView = (ModelView) returnValue;
-                    for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
-                        request.setAttribute(entry.getKey(), entry.getValue());
+                // Check for Restapi annotation
+                if (method.isAnnotationPresent(Restapi.class)) {
+                    // Convert return value to JSON and send it in response
+                    response.setContentType("application/json");
+
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    String jsonResponse = "";
+
+                    if (returnValue instanceof ModelView) {
+                        ModelView modelView = (ModelView) returnValue;
+                        jsonResponse = objectMapper.writeValueAsString(modelView.getData());
+                    } else {
+                        jsonResponse = objectMapper.writeValueAsString(returnValue);
                     }
-                    RequestDispatcher dispatcher = request.getRequestDispatcher(modelView.getUrl());
-                    dispatcher.forward(request, response);
+
+                    out.println(jsonResponse);
                 } else {
-                    out.println("Type de données non reconnu");
+                    // Continue as before if Restapi annotation is not present
+                    if (returnValue instanceof String) {
+                        out.println("Méthode trouvée dans " + returnValue);
+                    } else if (returnValue instanceof ModelView) {
+                        ModelView modelView = (ModelView) returnValue;
+                        for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
+                            request.setAttribute(entry.getKey(), entry.getValue());
+                        }
+                        RequestDispatcher dispatcher = request.getRequestDispatcher(modelView.getUrl());
+                        dispatcher.forward(request, response);
+                    } else {
+                        out.println("Type de données non reconnu");
+                    }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        }
-        out.close();
+            }
+            out.close();
     }
 
     @Override
