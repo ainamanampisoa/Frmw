@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class FrontController extends HttpServlet {
     private List<String> controller = new ArrayList<>();
@@ -47,16 +48,17 @@ public class FrontController extends HttpServlet {
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+    throws ServletException, IOException {
         PrintWriter out = response.getWriter();
         String[] requestUrlSplitted = request.getRequestURL().toString().split("/");
         String controllerSearched = requestUrlSplitted[requestUrlSplitted.length - 1];
 
-        response.setContentType("text/html");
+        response.setContentType("application/json");
+
         if (!error.isEmpty()) {
-            out.println(error);
+            out.println("{\"error\": \"" + error + "\"}");
         } else if (!lien.containsKey(controllerSearched)) {
-            out.println("<p>Méthode non trouvée.</p>");
+            out.println("{\"message\": \"Méthode non trouvée.\"}");
         } else {
             try {
                 Mapping mapping = lien.get(controllerSearched);
@@ -77,30 +79,32 @@ public class FrontController extends HttpServlet {
                 }
 
                 if (method == null) {
-                    out.println("<p>Aucune méthode correspondante trouvée.</p>");
+                    out.println("{\"message\": \"Aucune méthode correspondante trouvée.\"}");
                     return;
                 }
 
                 // Inject parameters
                 Object[] parameters = getMethodParameters(method, request);
-                
+
                 Object object = clazz.getDeclaredConstructor().newInstance();
                 Object returnValue = method.invoke(object, parameters);
 
-                if (returnValue instanceof String) {
-                    out.println("Méthode trouvée dans " + returnValue);
-                } else if (returnValue instanceof ModelView) {
+                // Convertir la réponse en JSON
+                ObjectMapper objectMapper = new ObjectMapper();
+                String jsonResponse = "";
+
+                if (returnValue instanceof ModelView) {
                     ModelView modelView = (ModelView) returnValue;
-                    for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
-                        request.setAttribute(entry.getKey(), entry.getValue());
-                    }
-                    RequestDispatcher dispatcher = request.getRequestDispatcher(modelView.getUrl());
-                    dispatcher.forward(request, response);
+                    jsonResponse = objectMapper.writeValueAsString(modelView.getData());
                 } else {
-                    out.println("Type de données non reconnu");
+                    jsonResponse = objectMapper.writeValueAsString(returnValue);
                 }
+
+                out.println(jsonResponse);
+
             } catch (Exception e) {
                 e.printStackTrace();
+                out.println("{\"error\": \"Une erreur est survenue.\"}");
             }
         }
         out.close();
@@ -210,30 +214,4 @@ public class FrontController extends HttpServlet {
         return parameterValues;
     }
     
-}
-
-class Mapping {
-    String className;
-    String methodeName;
-
-    public Mapping(String className, String methodeName) {
-        this.className = className;
-        this.methodeName = methodeName;
-    }
-
-    public String getClassName() {
-        return className;
-    }
-
-    public void setClassName(String className) {
-        this.className = className;
-    }
-
-    public String getMethodeName() {
-        return methodeName;
-    }
-
-    public void setMethodeName(String methodeName) {
-        this.methodeName = methodeName;
-    }
 }
