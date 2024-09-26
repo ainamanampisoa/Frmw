@@ -53,12 +53,12 @@ public class FrontController extends HttpServlet {
         String[] requestUrlSplitted = request.getRequestURL().toString().split("/");
         String controllerSearched = requestUrlSplitted[requestUrlSplitted.length - 1];
 
-        response.setContentType("text/html");
+        response.setContentType("application/json");
 
         if (!error.isEmpty()) {
-            out.println(error);
+            out.println("{\"error\": \"" + error + "\"}");
         } else if (!lien.containsKey(controllerSearched)) {
-            out.println("<p>Méthode non trouvée.</p>");
+            out.println("{\"message\": \"Méthode non trouvée.\"}");
         } else {
             try {
                 Mapping mapping = lien.get(controllerSearched);
@@ -79,7 +79,7 @@ public class FrontController extends HttpServlet {
                 }
 
                 if (method == null) {
-                    out.println("<p>Aucune méthode correspondante trouvée.</p>");
+                    out.println("{\"message\": \"Aucune méthode correspondante trouvée.\"}");
                     return;
                 }
 
@@ -89,42 +89,25 @@ public class FrontController extends HttpServlet {
                 Object object = clazz.getDeclaredConstructor().newInstance();
                 Object returnValue = method.invoke(object, parameters);
 
-                // Check for Restapi annotation
-                if (method.isAnnotationPresent(Restapi.class)) {
-                    // Convert return value to JSON and send it in response
-                    response.setContentType("application/json");
+                // Convertir la réponse en JSON
+                ObjectMapper objectMapper = new ObjectMapper();
+                String jsonResponse = "";
 
-                    ObjectMapper objectMapper = new ObjectMapper();
-                    String jsonResponse = "";
-
-                    if (returnValue instanceof ModelView) {
-                        ModelView modelView = (ModelView) returnValue;
-                        jsonResponse = objectMapper.writeValueAsString(modelView.getData());
-                    } else {
-                        jsonResponse = objectMapper.writeValueAsString(returnValue);
-                    }
-
-                    out.println(jsonResponse);
+                if (returnValue instanceof ModelView) {
+                    ModelView modelView = (ModelView) returnValue;
+                    jsonResponse = objectMapper.writeValueAsString(modelView.getData());
                 } else {
-                    // Continue as before if Restapi annotation is not present
-                    if (returnValue instanceof String) {
-                        out.println("Méthode trouvée dans " + returnValue);
-                    } else if (returnValue instanceof ModelView) {
-                        ModelView modelView = (ModelView) returnValue;
-                        for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
-                            request.setAttribute(entry.getKey(), entry.getValue());
-                        }
-                        RequestDispatcher dispatcher = request.getRequestDispatcher(modelView.getUrl());
-                        dispatcher.forward(request, response);
-                    } else {
-                        out.println("Type de données non reconnu");
-                    }
+                    jsonResponse = objectMapper.writeValueAsString(returnValue);
                 }
+
+                out.println(jsonResponse);
+
             } catch (Exception e) {
                 e.printStackTrace();
+                out.println("{\"error\": \"Une erreur est survenue.\"}");
             }
-            }
-            out.close();
+        }
+        out.close();
     }
 
     @Override
@@ -231,30 +214,4 @@ public class FrontController extends HttpServlet {
         return parameterValues;
     }
     
-}
-
-class Mapping {
-    String className;
-    String methodeName;
-
-    public Mapping(String className, String methodeName) {
-        this.className = className;
-        this.methodeName = methodeName;
-    }
-
-    public String getClassName() {
-        return className;
-    }
-
-    public void setClassName(String className) {
-        this.className = className;
-    }
-
-    public String getMethodeName() {
-        return methodeName;
-    }
-
-    public void setMethodeName(String methodeName) {
-        this.methodeName = methodeName;
-    }
 }
