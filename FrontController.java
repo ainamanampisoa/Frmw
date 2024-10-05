@@ -65,7 +65,11 @@ public class FrontController extends HttpServlet {
                 Class<?> clazz = Class.forName(mapping.getClassName());
                 Method method = null;
 
-                // Find the method that matches the request type (GET or POST)
+                if (!mapping.getVerb().equalsIgnoreCase(request.getMethod())) {
+                    throw new Exception("La méthode " + mapping.getMethodeName() + " n'est pas compatible avec le verbe " + request.getMethod());
+                }
+    
+                // Trouver la méthode qui correspond au type de requête (GET ou POST)
                 for (Method m : clazz.getDeclaredMethods()) {
                     if (m.getName().equals(mapping.getMethodeName())) {
                         if (request.getMethod().equalsIgnoreCase("GET") && m.isAnnotationPresent(GetAnnotation.class)) {
@@ -159,10 +163,9 @@ public class FrontController extends HttpServlet {
                                 controller.add(classe.getSimpleName());
 
                                 Method[] methodes = classe.getDeclaredMethods();
-
                                 for (Method methode : methodes) {
                                     if (methode.isAnnotationPresent(GetAnnotation.class)) {
-                                        Mapping map = new Mapping(className, methode.getName());
+                                        Mapping map = new Mapping(className, methode.getName(), "GET"); // Ajouter le verbe GET
                                         String valeur = methode.getAnnotation(GetAnnotation.class).value();
                                         if (lien.containsKey(valeur)) {
                                             throw new Exception("double url" + valeur);
@@ -170,7 +173,7 @@ public class FrontController extends HttpServlet {
                                             lien.put(valeur, map);
                                         }
                                     } else if (methode.isAnnotationPresent(Post.class)) {
-                                        Mapping map = new Mapping(className, methode.getName());
+                                        Mapping map = new Mapping(className, methode.getName(), "POST"); // Ajouter le verbe POST
                                         String valeur = methode.getAnnotation(Post.class).value();
                                         if (lien.containsKey(valeur)) {
                                             throw new Exception("double url" + valeur);
@@ -179,6 +182,7 @@ public class FrontController extends HttpServlet {
                                         }
                                     }
                                 }
+                                
                             }
                         } catch (Exception e) {
                             throw e;
@@ -234,27 +238,34 @@ public class FrontController extends HttpServlet {
 }
 
 class Mapping {
-    String className;
-    String methodeName;
+        String className;
+        String methodeName;
+        String verb; // Ajout d'un attribut pour le verbe
 
-    public Mapping(String className, String methodeName) {
-        this.className = className;
-        this.methodeName = methodeName;
-    }
+        public Mapping(String className, String methodeName, String verb) {
+            this.className = className;
+            this.methodeName = methodeName;
+            this.verb = verb; // Initialisation de l'attribut verb
+        }
 
-    public String getClassName() {
-        return className;
-    }
+        public String getClassName() {
+            return className;
+        }
 
-    public void setClassName(String className) {
-        this.className = className;
-    }
+        public void setClassName(String className) {
+            this.className = className;
+        }
 
-    public String getMethodeName() {
-        return methodeName;
-    }
+        public String getMethodeName() {
+            return methodeName;
+        }
 
-    public void setMethodeName(String methodeName) {
-        this.methodeName = methodeName;
-    }
+        public void setMethodeName(String methodeName) {
+            this.methodeName = methodeName;
+        }
+
+        public String getVerb() {
+            return verb; // Getter pour l'attribut verb
+        }
 }
+
