@@ -64,19 +64,20 @@ public class FrontController extends HttpServlet {
                 Mapping mapping = lien.get(controllerSearched);
                 Class<?> clazz = Class.forName(mapping.getClassName());
                 Method method = null;
-
-                // Find the method with the correct HTTP verb (GET or POST) and URL
+                
+                if (!mapping.getVerb().equalsIgnoreCase(request.getMethod())) {
+                    throw new Exception("La méthode " + mapping.getMethodeName() + " n'est pas compatible avec le verbe " + request.getMethod());
+                }
+    
+                // Trouver la méthode qui correspond au type de requête (GET ou POST)
                 for (Method m : clazz.getDeclaredMethods()) {
-                    if (m.isAnnotationPresent(Verb.class)) {
-                        Verb verbAnnotation = m.getAnnotation(Verb.class);
-                        if (verbAnnotation.url().equals(controllerSearched)) {
-                            if (request.getMethod().equalsIgnoreCase(verbAnnotation.method())) {
-                                method = m;
-                                break;
-                            } else {
-                                throw new IllegalArgumentException("Le verbe HTTP ne correspond pas. Attendu : " 
-                                        + verbAnnotation.method() + " mais reçu : " + request.getMethod());
-                            }
+                    if (m.getName().equals(mapping.getMethodeName())) {
+                        if (request.getMethod().equalsIgnoreCase("GET") && m.isAnnotationPresent(GetAnnotation.class)) {
+                            method = m;
+                            break;
+                        } else if (request.getMethod().equalsIgnoreCase("POST") && m.isAnnotationPresent(Post.class)) {
+                            method = m;
+                            break;
                         }
                     }
                 }
@@ -86,13 +87,15 @@ public class FrontController extends HttpServlet {
                     return;
                 }
 
-                // Inject parameters and call the method (reste du code identique)
+                // Inject parameters
                 Object[] parameters = getMethodParameters(method, request);
+
                 Object object = clazz.getDeclaredConstructor().newInstance();
                 Object returnValue = method.invoke(object, parameters);
 
-                // Vérifie si la méthode a l'annotation Restapi
+                // Check for Restapi annotation
                 if (method.isAnnotationPresent(Restapi.class)) {
+                    // Convert return value to JSON and send it in response
                     response.setContentType("application/json");
 
                     ObjectMapper objectMapper = new ObjectMapper();
@@ -107,6 +110,7 @@ public class FrontController extends HttpServlet {
 
                     out.println(jsonResponse);
                 } else {
+                    // Continue as before if Restapi annotation is not present
                     if (returnValue instanceof String) {
                         out.println("Méthode trouvée dans " + returnValue);
                     } else if (returnValue instanceof ModelView) {
@@ -123,10 +127,9 @@ public class FrontController extends HttpServlet {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        }
-        out.close();
-        }
-
+            }
+            out.close();
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -160,10 +163,9 @@ public class FrontController extends HttpServlet {
                                 controller.add(classe.getSimpleName());
 
                                 Method[] methodes = classe.getDeclaredMethods();
-
                                 for (Method methode : methodes) {
                                     if (methode.isAnnotationPresent(GetAnnotation.class)) {
-                                        Mapping map = new Mapping(className, methode.getName());
+                                        Mapping map = new Mapping(className, methode.getName(), "GET"); // Ajouter le verbe GET
                                         String valeur = methode.getAnnotation(GetAnnotation.class).value();
                                         if (lien.containsKey(valeur)) {
                                             throw new Exception("double url" + valeur);
@@ -171,7 +173,7 @@ public class FrontController extends HttpServlet {
                                             lien.put(valeur, map);
                                         }
                                     } else if (methode.isAnnotationPresent(Post.class)) {
-                                        Mapping map = new Mapping(className, methode.getName());
+                                        Mapping map = new Mapping(className, methode.getName(), "POST"); // Ajouter le verbe POST
                                         String valeur = methode.getAnnotation(Post.class).value();
                                         if (lien.containsKey(valeur)) {
                                             throw new Exception("double url" + valeur);
@@ -180,6 +182,7 @@ public class FrontController extends HttpServlet {
                                         }
                                     }
                                 }
+                                
                             }
                         } catch (Exception e) {
                             throw e;
@@ -235,27 +238,34 @@ public class FrontController extends HttpServlet {
 }
 
 class Mapping {
-    String className;
-    String methodeName;
+        String className;
+        String methodeName;
+        String verb; // Ajout d'un attribut pour le verbe
 
-    public Mapping(String className, String methodeName) {
-        this.className = className;
-        this.methodeName = methodeName;
+        public Mapping(String className, String methodeName, String verb) {
+            this.className = className;
+            this.methodeName = methodeName;
+            this.verb = verb; // Initialisation de l'attribut verb
+        }
+
+        public String getClassName() {
+            return className;
+        }
+
+        public void setClassName(String className) {
+            this.className = className;
+        }
+
+        public String getMethodeName() {
+            return methodeName;
+        }
+
+        public void setMethodeName(String methodeName) {
+            this.methodeName = methodeName;
+        }
+
+        public String getVerb() {
+            return verb; // Getter pour l'attribut verb
+        }
     }
 
-    public String getClassName() {
-        return className;
-    }
-
-    public void setClassName(String className) {
-        this.className = className;
-    }
-
-    public String getMethodeName() {
-        return methodeName;
-    }
-
-    public void setMethodeName(String methodeName) {
-        this.methodeName = methodeName;
-    }
-}

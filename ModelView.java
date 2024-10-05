@@ -31,4 +31,9 @@ public class ModelView {
     public void addObject(String key, Object value) {
         this.data.put(key, value);
     }
+
+    // Ajout de la méthode addItem
+    public void addItem(String key, Object value) {
+        this.addObject(key, value);
+    }
 }
