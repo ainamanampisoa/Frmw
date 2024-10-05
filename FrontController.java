@@ -64,7 +64,7 @@ public class FrontController extends HttpServlet {
                 Mapping mapping = lien.get(controllerSearched);
                 Class<?> clazz = Class.forName(mapping.getClassName());
                 Method method = null;
-                
+
                 if (!mapping.getVerb().equalsIgnoreCase(request.getMethod())) {
                     throw new Exception("La méthode " + mapping.getMethodeName() + " n'est pas compatible avec le verbe " + request.getMethod());
                 }
@@ -267,5 +267,5 @@ class Mapping {
         public String getVerb() {
             return verb; // Getter pour l'attribut verb
         }
-    }
+}
 
