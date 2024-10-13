@@ -11,17 +11,8 @@ import java.io.PrintWriter;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.net.URLDecoder;
-
-import mg.itu.prom16.ModelView; 
-import mg.itu.prom16.RequestBody;
-import java.lang.reflect.Field;  
-import java.io.*;
-import java.lang.reflect.Executable;
-import java.lang.reflect.Method;
-import java.net.URLDecoder;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-import jakarta.servlet.RequestDispatcher; 
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -65,39 +56,29 @@ public class FrontController extends HttpServlet {
                 Class<?> clazz = Class.forName(mapping.getClassName());
                 Method method = null;
 
-                if (!mapping.getVerb().equalsIgnoreCase(request.getMethod())) {
-                    throw new Exception("La méthode " + mapping.getMethodeName() + " n'est pas compatible avec le verbe " + request.getMethod());
-                }
-    
-                // Trouver la méthode qui correspond au type de requête (GET ou POST)
-                for (Method m : clazz.getDeclaredMethods()) {
-                    if (m.getName().equals(mapping.getMethodeName())) {
-                        if (request.getMethod().equalsIgnoreCase("GET") && m.isAnnotationPresent(GetAnnotation.class)) {
-                            method = m;
-                            break;
-                        } else if (request.getMethod().equalsIgnoreCase("POST") && m.isAnnotationPresent(Post.class)) {
-                            method = m;
-                            break;
-                        }
+                // Trouver l'action correspondant au verbe HTTP de la requête
+                for (VerbAction action : mapping.getActions()) {
+                    if (action.getVerb().equalsIgnoreCase(request.getMethod())) {
+                        method = clazz.getMethod(action.getMethodName());
+                        break;
                     }
                 }
 
                 if (method == null) {
-                    out.println("<p>Aucune méthode correspondante trouvée.</p>");
+                    out.println("<p>Aucune méthode correspondante trouvée pour le verbe " + request.getMethod() + ".</p>");
                     return;
                 }
 
-                // Inject parameters
+                // Injecter les paramètres
                 Object[] parameters = getMethodParameters(method, request);
 
                 Object object = clazz.getDeclaredConstructor().newInstance();
                 Object returnValue = method.invoke(object, parameters);
 
-                // Check for Restapi annotation
+                // Vérifier l'annotation Restapi
                 if (method.isAnnotationPresent(Restapi.class)) {
-                    // Convert return value to JSON and send it in response
+                    // Convertir en JSON et envoyer la réponse
                     response.setContentType("application/json");
-
                     ObjectMapper objectMapper = new ObjectMapper();
                     String jsonResponse = "";
 
@@ -110,7 +91,7 @@ public class FrontController extends HttpServlet {
 
                     out.println(jsonResponse);
                 } else {
-                    // Continue as before if Restapi annotation is not present
+                    // Continuer le traitement si Restapi n'est pas présent
                     if (returnValue instanceof String) {
                         out.println("Méthode trouvée dans " + returnValue);
                     } else if (returnValue instanceof ModelView) {
@@ -127,19 +108,19 @@ public class FrontController extends HttpServlet {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            }
-            out.close();
+        }
+        out.close();
     }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+    throws ServletException, IOException {
         processRequest(request, response);
     }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+    throws ServletException, IOException {
         processRequest(request, response);
     }
 
@@ -162,35 +143,35 @@ public class FrontController extends HttpServlet {
                             if (classe.isAnnotationPresent(AnnotationController.class)) {
                                 controller.add(classe.getSimpleName());
 
+                                Mapping map = new Mapping(className);
                                 Method[] methodes = classe.getDeclaredMethods();
+
                                 for (Method methode : methodes) {
                                     if (methode.isAnnotationPresent(GetAnnotation.class)) {
-                                        Mapping map = new Mapping(className, methode.getName(), "GET"); // Ajouter le verbe GET
-                                        String valeur = methode.getAnnotation(GetAnnotation.class).value();
-                                        if (lien.containsKey(valeur)) {
-                                            throw new Exception("double url" + valeur);
-                                        } else {
-                                            lien.put(valeur, map);
-                                        }
+                                        VerbAction getAction = new VerbAction("GET", methode.getName());
+                                        map.addAction(getAction);
                                     } else if (methode.isAnnotationPresent(Post.class)) {
-                                        Mapping map = new Mapping(className, methode.getName(), "POST"); // Ajouter le verbe POST
-                                        String valeur = methode.getAnnotation(Post.class).value();
-                                        if (lien.containsKey(valeur)) {
-                                            throw new Exception("double url" + valeur);
-                                        } else {
-                                            lien.put(valeur, map);
-                                        }
+                                        VerbAction postAction = new VerbAction("POST", methode.getName());
+                                        map.addAction(postAction);
                                     }
                                 }
-                                
+
+                                String valeur = methodes[0].isAnnotationPresent(GetAnnotation.class) ?
+                                        methodes[0].getAnnotation(GetAnnotation.class).value() :
+                                        methodes[0].getAnnotation(Post.class).value();
+
+                                if (lien.containsKey(valeur)) {
+                                    throw new Exception("double url " + valeur);
+                                } else {
+                                    lien.put(valeur, map);
+                                }
                             }
                         } catch (Exception e) {
                             throw e;
                         }
-
                     }
                 } else {
-                    throw new Exception("le package est vide");
+                    throw new Exception("Le package est vide");
                 }
             }
         } catch (Exception e) {
@@ -198,26 +179,12 @@ public class FrontController extends HttpServlet {
         }
     }
 
-    private Object createRequestBodyParameter(Parameter parameter, Map<String, String[]> paramMap) throws Exception {
-        Class<?> paramType = parameter.getType();
-        Object paramObject = paramType.getDeclaredConstructor().newInstance();
-        for (Field field : paramType.getDeclaredFields()) {
-            String paramName = field.getName();
-            if (paramMap.containsKey(paramName)) {
-                String paramValue = paramMap.get(paramName)[0]; // Assuming single value for simplicity
-                field.setAccessible(true);
-                field.set(paramObject, paramValue);
-            }
-        }
-        return paramObject;
-    }
-    
     private Object[] getMethodParameters(Method method, HttpServletRequest request) throws Exception {
         Parameter[] parameters = method.getParameters();
         Object[] parameterValues = new Object[parameters.length];
-    
+
         HttpSession session = request.getSession();
-    
+
         for (int i = 0; i < parameters.length; i++) {
             Parameter parameter = parameters[i];
             if (parameter.getType() == MySession.class) {
@@ -226,46 +193,26 @@ public class FrontController extends HttpServlet {
                 parameterValues[i] = createRequestBodyParameter(parameter, request.getParameterMap());
             } else if (parameter.isAnnotationPresent(GetParam.class)) {
                 GetParam param = parameter.getAnnotation(GetParam.class);
-                parameterValues[i] = request.getParameter(param.value()); // Assuming all parameters are strings for simplicity
+                parameterValues[i] = request.getParameter(param.value());
             } else {
                 throw new IllegalArgumentException("Paramètre non supporté pour cette méthode");
             }
         }
-    
+
         return parameterValues;
     }
-    
+
+    private Object createRequestBodyParameter(Parameter parameter, Map<String, String[]> paramMap) throws Exception {
+        Class<?> paramType = parameter.getType();
+        Object paramObject = paramType.getDeclaredConstructor().newInstance();
+        for (Field field : paramType.getDeclaredFields()) {
+            String paramName = field.getName();
+            if (paramMap.containsKey(paramName)) {
+                String paramValue = paramMap.get(paramName)[0];
+                field.setAccessible(true);
+                field.set(paramObject, paramValue);
+            }
+        }
+        return paramObject;
+    }
 }
-
-class Mapping {
-        String className;
-        String methodeName;
-        String verb; // Ajout d'un attribut pour le verbe
-
-        public Mapping(String className, String methodeName, String verb) {
-            this.className = className;
-            this.methodeName = methodeName;
-            this.verb = verb; // Initialisation de l'attribut verb
-        }
-
-        public String getClassName() {
-            return className;
-        }
-
-        public void setClassName(String className) {
-            this.className = className;
-        }
-
-        public String getMethodeName() {
-            return methodeName;
-        }
-
-        public void setMethodeName(String methodeName) {
-            this.methodeName = methodeName;
-        }
-
-        public String getVerb() {
-            return verb; // Getter pour l'attribut verb
-        }
-}
-
