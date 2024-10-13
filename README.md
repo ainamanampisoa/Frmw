@@ -1,5 +1,5 @@
 
-EXEMPLE d'utilisation:
+=>EXEMPLE d'utilisation:
 
 -ajouter username dans la session
 -verifier si cet user existe et peut se connecter
