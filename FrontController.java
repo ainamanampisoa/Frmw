@@ -4,22 +4,33 @@ import mg.itu.prom16.AnnotationController;
 import mg.itu.prom16.GetAnnotation;
 import mg.itu.prom16.Post;
 import mg.itu.prom16.GetParam;
+import mg.itu.prom16.VerbAction;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.net.URLDecoder;
+import java.nio.file.Paths;
 import java.util.*;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.Part;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+@MultipartConfig(
+    fileSizeThreshold = 1024 * 1024 * 2, // 2MB
+    maxFileSize = 1024 * 1024 * 50,      // 50MB
+    maxRequestSize = 1024 * 1024 * 100   // 100MB
+)
 public class FrontController extends HttpServlet {
     private List<String> controller = new ArrayList<>();
     private String controllerPackage;
@@ -39,95 +50,88 @@ public class FrontController extends HttpServlet {
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-    throws ServletException, IOException {
-    PrintWriter out = response.getWriter();
-    String[] requestUrlSplitted = request.getRequestURL().toString().split("/");
-    String controllerSearched = requestUrlSplitted[requestUrlSplitted.length - 1];
+            throws ServletException, IOException {
+        PrintWriter out = response.getWriter();
+        String[] requestUrlSplitted = request.getRequestURL().toString().split("/");
+        String controllerSearched = requestUrlSplitted[requestUrlSplitted.length - 1];
 
-    response.setContentType("text/html");
+        response.setContentType("text/html");
 
-    if (!error.isEmpty()) {
-        out.println(error);
-    } else if (!lien.containsKey(controllerSearched)) {
-        // Lever une exception personnalisée pour une URL non trouvée
-        throw new ServletException("Erreur 404 : L'URL " + controllerSearched + " n'existe pas.");
-    } else {
-        try {
-            Mapping mapping = lien.get(controllerSearched);
-            Class<?> clazz = Class.forName(mapping.getClassName());
-            Method method = null;
+        if (!error.isEmpty()) {
+            out.println(error);
+        } else if (!lien.containsKey(controllerSearched)) {
+            out.println("<p>Méthode non trouvée.</p>");
+        } else {
+            try {
+                Mapping mapping = lien.get(controllerSearched);
+                Class<?> clazz = Class.forName(mapping.getClassName());
+                Method method = null;
 
-            // Trouver l'action correspondant au verbe HTTP de la requête
-            for (VerbAction action : mapping.getActions()) {
-                if (action.getVerb().equalsIgnoreCase(request.getMethod())) {
-                    method = clazz.getMethod(action.getMethodName());
-                    break;
-                }
-            }
-
-            if (method == null) {
-                // Lever une exception si aucune méthode n'est trouvée pour le verbe HTTP
-                throw new ServletException("Erreur 405 : Aucune méthode correspondante trouvée pour le verbe " + request.getMethod());
-            }
-
-            // Injecter les paramètres
-            Object[] parameters = getMethodParameters(method, request);
-
-            Object object = clazz.getDeclaredConstructor().newInstance();
-            Object returnValue = method.invoke(object, parameters);
-
-            // Vérifier l'annotation Restapi
-            if (method.isAnnotationPresent(Restapi.class)) {
-                // Convertir en JSON et envoyer la réponse
-                response.setContentType("application/json");
-                ObjectMapper objectMapper = new ObjectMapper();
-                String jsonResponse = "";
-
-                if (returnValue instanceof ModelView) {
-                    ModelView modelView = (ModelView) returnValue;
-                    jsonResponse = objectMapper.writeValueAsString(modelView.getData());
-                } else {
-                    jsonResponse = objectMapper.writeValueAsString(returnValue);
-                }
-
-                out.println(jsonResponse);
-            } else {
-                // Continuer le traitement si Restapi n'est pas présent
-                if (returnValue instanceof String) {
-                    out.println("Méthode trouvée dans " + returnValue);
-                } else if (returnValue instanceof ModelView) {
-                    ModelView modelView = (ModelView) returnValue;
-                    for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
-                        request.setAttribute(entry.getKey(), entry.getValue());
+                // Trouver l'action correspondant au verbe HTTP de la requête
+                for (VerbAction action : mapping.getActions()) {
+                    if (action.getVerb().equalsIgnoreCase(request.getMethod())) {
+                        method = clazz.getMethod(action.getMethodName());
+                        break;
                     }
-                    RequestDispatcher dispatcher = request.getRequestDispatcher(modelView.getUrl());
-                    dispatcher.forward(request, response);
-                } else {
-                    out.println("Type de données non reconnu");
                 }
-            }
-        } catch (ServletException e) {
-            // Afficher le message d'erreur (404, 405, etc.)
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            out.println("<p>" + e.getMessage() + "</p>");
-        } catch (Exception e) {
-            // Gérer les erreurs générales
-            e.printStackTrace();
-        }
-    }
-    out.close();
-}
 
+                if (method == null) {
+                    out.println("<p>Aucune méthode correspondante trouvée pour le verbe " + request.getMethod() + ".</p>");
+                    return;
+                }
+
+                // Injecter les paramètres, y compris les fichiers
+                Object[] parameters = getMethodParameters(method, request);
+
+                Object object = clazz.getDeclaredConstructor().newInstance();
+                Object returnValue = method.invoke(object, parameters);
+
+                // Vérifier l'annotation Restapi
+                if (method.isAnnotationPresent(Restapi.class)) {
+                    // Convertir en JSON et envoyer la réponse
+                    response.setContentType("application/json");
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    String jsonResponse = "";
+
+                    if (returnValue instanceof ModelView) {
+                        ModelView modelView = (ModelView) returnValue;
+                        jsonResponse = objectMapper.writeValueAsString(modelView.getData());
+                    } else {
+                        jsonResponse = objectMapper.writeValueAsString(returnValue);
+                    }
+
+                    out.println(jsonResponse);
+                } else {
+                    // Continuer le traitement si Restapi n'est pas présent
+                    if (returnValue instanceof String) {
+                        out.println("Méthode trouvée dans " + returnValue);
+                    } else if (returnValue instanceof ModelView) {
+                        ModelView modelView = (ModelView) returnValue;
+                        for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
+                            request.setAttribute(entry.getKey(), entry.getValue());
+                        }
+                        RequestDispatcher dispatcher = request.getRequestDispatcher(modelView.getUrl());
+                        dispatcher.forward(request, response);
+                    } else {
+                        out.println("Type de données non reconnu");
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        out.close();
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
-    throws ServletException, IOException {
+            throws ServletException, IOException {
         processRequest(request, response);
     }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
-    throws ServletException, IOException {
+            throws ServletException, IOException {
         processRequest(request, response);
     }
 
@@ -194,8 +198,10 @@ public class FrontController extends HttpServlet {
 
         for (int i = 0; i < parameters.length; i++) {
             Parameter parameter = parameters[i];
-            if (parameter.getType() == MySession.class) {
-                parameterValues[i] = new MySession(session);
+
+            // Cas pour les fichiers (Part)
+            if (parameter.getType() == Part.class) {
+                parameterValues[i] = request.getPart(parameter.getName());
             } else if (parameter.isAnnotationPresent(RequestBody.class)) {
                 parameterValues[i] = createRequestBodyParameter(parameter, request.getParameterMap());
             } else if (parameter.isAnnotationPresent(GetParam.class)) {
@@ -221,5 +227,11 @@ public class FrontController extends HttpServlet {
             }
         }
         return paramObject;
+    }
+
+    private String getControllerFromRequest(HttpServletRequest request) {
+        // Extraire le nom du contrôleur à partir de l'URL de la requête
+        String[] requestUrlSplitted = request.getRequestURL().toString().split("/");
+        return requestUrlSplitted[requestUrlSplitted.length - 1];
     }
 }
