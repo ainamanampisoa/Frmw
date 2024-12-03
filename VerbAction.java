@@ -1,11 +1,20 @@
 package mg.itu.prom16;
-public class VerbAction {
-    private String verb;
-    private String methodName;
 
-    public VerbAction(String verb, String methodName) {
+public class VerbAction {
+    private String methodeName;
+    private String verb;
+
+    public VerbAction(String methodeName, String verb) {
+        this.methodeName = methodeName;
         this.verb = verb;
-        this.methodName = methodName;
+    }
+
+    public String getMethodeName() {
+        return methodeName;
+    }
+
+    public void setMethodeName(String methodeName) {
+        this.methodeName = methodeName;
     }
 
     public String getVerb() {
@@ -16,11 +25,4 @@ public class VerbAction {
         this.verb = verb;
     }
 
-    public String getMethodName() {
-        return methodName;
-    }
-
-    public void setMethodName(String methodName) {
-        this.methodName = methodName;
-    }
 }
