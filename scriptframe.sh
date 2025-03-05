@@ -4,7 +4,7 @@
 SRC_DIR="src"
 BUILD_DIR="build"
 DIST_DIR="dist"
-JAR_NAME="framework.jar"
+JAR_NAME="frmw.jar"
 LIB_DIR="lib"
 
 # Nettoyage des anciens fichiers
