@@ -1,5 +1,5 @@
 # sprint14
-
+exemple:
     <servlet>
         <servlet-name>FrontController</servlet-name>
         <servlet-class>mg.itu.prom16.FrontController</servlet-class>
