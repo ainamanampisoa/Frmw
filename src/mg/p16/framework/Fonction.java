@@ -324,7 +324,7 @@ public class Fonction {
                 mg.p16.annotations.Annotation.Valid validAnnotation = param
                         .getAnnotation(mg.p16.annotations.Annotation.Valid.class);
                 if (validAnnotation == null) {
-                    throw new Exception("Etu002615 : le parametre " + param.getName() + " dans " + method.getName()
+                    throw new Exception("Etu002615 : parametre " + param.getName() + " dans " + method.getName()
                             + " doit avoir une annotation @Valid");
                 }
 
